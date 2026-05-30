@@ -8,10 +8,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Severity = Literal["info", "low", "medium", "high", "critical"]
+from sentinel.types import SEVERITY_RANK, Severity
 
 
 class Settings(BaseSettings):
@@ -82,12 +81,8 @@ class Settings(BaseSettings):
     # --- internal API base (CLI -> control plane) ---
     api_base_url: str = "http://api:8000"
 
-    @property
-    def severity_rank(self) -> dict[str, int]:
-        return {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
-
     def sev_at_or_below(self, sev: str, ceiling: str) -> bool:
-        return self.severity_rank.get(sev, 99) <= self.severity_rank.get(ceiling, 0)
+        return SEVERITY_RANK.get(sev, 99) <= SEVERITY_RANK.get(ceiling, 0)
 
 
 @lru_cache
