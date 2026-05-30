@@ -1,0 +1,163 @@
+# SentinelLite — full stack. Runs end-to-end with zero .env and zero API keys.
+# `docker compose up --build`  then  `make replay`.
+
+x-backend-env: &backend-env
+  LLM_PROVIDER: "${LLM_PROVIDER:-ollama}"
+  LLM_MODEL: "${LLM_MODEL:-qwen2.5:1.5b-instruct}"
+  OLLAMA_HOST: "${OLLAMA_HOST:-http://ollama:11434}"
+  NEO4J_URI: "${NEO4J_URI:-bolt://neo4j:7687}"
+  NEO4J_USER: "${NEO4J_USER:-neo4j}"
+  NEO4J_PASSWORD: "${NEO4J_PASSWORD:-change-me-please}"
+  POSTGRES_DSN: "${POSTGRES_DSN:-postgresql+asyncpg://sentinel:sentinel@postgres/sentinel}"
+  REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+  API_BASE_URL: "${API_BASE_URL:-http://api:8000}"
+  RULES_DIR: "/app/rules"
+  REPLAY_DATA_DIR: "/app/datasets"
+  AIRGAP_MODE: "${AIRGAP_MODE:-false}"
+  TENANT_ID: "${TENANT_ID:-default}"
+  ACTION_DRY_RUN: "${ACTION_DRY_RUN:-true}"
+  LOG_JSON: "${LOG_JSON:-true}"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel
+      POSTGRES_DB: sentinel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:-change-me-please}"
+      HEALTHCHECK_PW: "${NEO4J_PASSWORD:-change-me-please}"
+      NEO4J_server_memory_heap_initial__size: "512m"
+      NEO4J_server_memory_heap_max__size: "512m"
+      NEO4J_server_memory_pagecache_size: "512m"
+    volumes:
+      - neo4jdata:/data
+    ports: ["7474:7474", "7687:7687"]
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$$HEALTHCHECK_PW\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 20s
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollamadata:/root/.ollama
+    ports: ["11434:11434"]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+
+  # One-shot: pull the demo model, then exit 0. Gates the worker.
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+      LLM_MODEL: "${LLM_MODEL:-qwen2.5:1.5b-instruct}"
+    entrypoint: ["/bin/sh", "-c", "echo Pulling $$LLM_MODEL ...; ollama pull \"$$LLM_MODEL\" && echo model-ready"]
+    restart: "no"
+
+  api:
+    build: { context: ./backend }
+    image: sentinellite-backend:latest
+    command: ["uvicorn", "sentinel.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment: *backend-env
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./backend:/app
+      - ./rules:/app/rules
+      - ./datasets:/app/datasets
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  worker:
+    build: { context: ./backend }
+    image: sentinellite-backend:latest
+    command: ["python", "-m", "sentinel.worker.main"]
+    environment: *backend-env
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./backend:/app
+      - ./rules:/app/rules
+      - ./datasets:/app/datasets
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      ollama-init: { condition: service_completed_successfully }
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports: ["3001:3000"]
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:
+  neo4jdata:
+  redisdata:
+  ollamadata:
+  promdata:
+  grafanadata:

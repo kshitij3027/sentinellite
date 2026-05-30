@@ -24,17 +24,19 @@
 
 ---
 
-## Milestone 0 — Foundation & scaffolding
+## Milestone 0 — Foundation & scaffolding  ✅ DONE
 - [x] Assess env (git/docker/gh/resources)
 - [x] `.gitignore`
-- [ ] `tasks/todo.md` + `tasks/lessons.md`
-- [ ] README skeleton + LICENSE (MIT)
-- [ ] Monorepo layout: `backend/`, `dashboard/`, `cli/`, `datasets/`, `rules/`, `deploy/`, `verification/`
-- [ ] `git init` + first commit
-- [ ] `gh repo create` (private) + push
-- [ ] `.env.example` with all configurable params
-- [ ] `docker-compose.yml` skeleton (all 9+ services) + healthchecks
-- [ ] `Makefile` (up/down/test/smoketest-fresh)
+- [x] `tasks/todo.md` + `tasks/lessons.md`
+- [x] README skeleton + LICENSE (MIT)
+- [x] Monorepo layout: `backend/`, `datasets/`, `rules/`, `deploy/` (dashboard/ in M5, verification/ in M8)
+- [x] `git init` + first commit
+- [x] `gh repo create` **public** + push → https://github.com/kshitij3027/sentinellite
+- [x] `.env.example` with all configurable params
+- [x] `docker-compose.yml` (8 services) + healthchecks + dependency ordering
+- [x] `Makefile` (up/down/test/fetch/replay/smoketest-fresh)
+- [x] Backend skeleton (config/logging/metrics/api/worker/cli) + 6 smoke tests passing
+- [x] **Validated: full stack boots healthy in Docker; model pulled; all endpoints green**
 
 ## Milestone 1 — Backend data plane (R1, R2, R9)
 - [ ] FastAPI app skeleton + structured logging (structlog) + settings

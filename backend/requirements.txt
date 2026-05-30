@@ -1,0 +1,28 @@
+# Runtime dependencies (single source of truth; pyproject installs the package --no-deps)
+fastapi>=0.111
+uvicorn[standard]>=0.30
+sse-starlette>=2.1
+python-multipart>=0.0.9
+pydantic>=2.8
+pydantic-settings>=2.4
+pydantic-ai-slim[openai]>=0.0.49
+sqlalchemy[asyncio]>=2.0.31
+asyncpg>=0.29
+pgvector>=0.3.0
+neo4j>=5.23
+redis>=5.0
+httpx>=0.27
+structlog>=24.4
+prometheus-client>=0.20
+tenacity>=8.5
+pyyaml>=6.0
+watchfiles>=0.22
+typer>=0.12
+rich>=13.7
+
+# dev/test
+pytest>=8.3
+pytest-asyncio>=0.23
+respx>=0.21
+polyfactory>=2.16
+anyio>=4.4

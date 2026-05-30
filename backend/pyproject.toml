@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinellite"
+version = "0.1.0"
+description = "A self-hostable mini Autonomous SOC: security graph + parallel AI agents + approval gate."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+# Runtime deps are installed from requirements.txt for Docker layer caching.
+# The package itself is installed with `pip install -e . --no-deps`.
+dependencies = []
+
+[project.scripts]
+sentinel = "sentinel.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sentinel*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
