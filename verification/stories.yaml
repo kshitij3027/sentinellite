@@ -1,0 +1,31 @@
+stories:
+  - name: "SOC analyst reviews the supply-chain incident and approves a response"
+    url: "{{DASHBOARD_URL}}"
+    workflow: |
+      Navigate to {{DASHBOARD_URL}}
+      In the tenant selector input at the top (labeled "Active tenant id"), clear it, type "{{TENANT}}", and press Enter
+      Verify the Alert Queue page loads with a summary showing counts of escalated and auto-closed alerts (there should be many auto-closed "noise" alerts and several escalated ones)
+      Verify the alert table lists alerts with Severity, Confidence, and Priority values
+      Click the "Investigations" link in the top navigation
+      Verify at least one investigation is listed with status "awaiting approval"
+      Click the first investigation to open its detail page
+      Verify a kill-chain timeline is shown with multiple stages, each labeled with a MITRE ATT&CK technique id (for example T1195.002 and T1530)
+      Verify an attack graph (a node-link diagram of entities) is rendered
+      Verify a data-provenance section cites real datasets such as "Splunk attack_data" or "GitHub Advisory DB"
+      Click the "Actions" link in the top navigation
+      Verify at least three response actions are listed awaiting approval (for example block_ip, quarantine_package, revoke_aws_keys)
+      Find the "block_ip" action and click its "Approve" button
+      Verify the block_ip action becomes executed and shows a dry-run result
+      Click the "Audit" link in the top navigation
+      Verify a hash-chain status badge is shown indicating the chain is verified
+
+  - name: "Irreversible response action requires a second confirmation"
+    url: "{{DASHBOARD_URL}}"
+    workflow: |
+      Navigate to {{DASHBOARD_URL}}
+      In the tenant selector input (labeled "Active tenant id"), set the tenant to "{{TENANT}}" and press Enter
+      Click the "Actions" link in the top navigation
+      Find a "revoke_aws_keys" action (it is marked as requiring a second confirmation) and click its "Approve" button
+      Verify a confirmation dialog or warning appears stating the action is irreversible and asking for confirmation
+      Confirm the action in the dialog
+      Verify the revoke_aws_keys action becomes executed and shows a dry-run result

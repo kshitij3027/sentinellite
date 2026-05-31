@@ -60,3 +60,6 @@ rules/candidates/
 
 # ---- Local scratch ----
 tasks/scratch/
+
+# ---- UI-review screenshots (artifacts) ----
+screenshots/
