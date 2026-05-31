@@ -38,27 +38,32 @@ import sys, time, httpx
 tenant = sys.argv[1]
 H = {"X-Tenant-Id": tenant}
 B = "http://api:8000"
-deadline = time.time() + 240
-inv = None
+# The pipeline is eventually consistent (debounced investigation), so poll until
+# the incident SETTLES: all malicious alerts escalated, kill chain >= 4 stages,
+# and >= 3 response actions staged. (The AWS-stage actions land last.)
+deadline = time.time() + 300
+inv, acts, escalated, auto_closed = None, 0, 0, 0
 while time.time() < deadline:
     try:
         alerts = httpx.get(f"{B}/alerts?limit=300", headers=H, timeout=15).json()["alerts"]
         escalated = sum(1 for a in alerts if a["status"] == "escalated")
+        auto_closed = sum(1 for a in alerts if a["status"] == "auto_closed")
         invs = httpx.get(f"{B}/investigations", headers=H, timeout=15).json()["investigations"]
-        if invs and invs[0]["stage_count"] >= 4 and invs[0]["status"] == "awaiting_approval" and escalated >= 8:
-            inv = invs[0]
-            break
+        if invs:
+            cand = invs[0]
+            a = httpx.get(f"{B}/actions?investigation_id={cand['id']}", headers=H, timeout=15).json()["count"]
+            if cand["stage_count"] >= 4 and cand["status"] == "awaiting_approval" and escalated >= 8 and a >= 3:
+                inv, acts = cand, a
+                break
     except Exception:
         pass
     time.sleep(4)
-assert inv, "FAIL: no multi-stage awaiting-approval investigation surfaced in time"
-acts = httpx.get(f"{B}/actions?investigation_id={inv['id']}", headers=H, timeout=15).json()["count"]
+assert inv, "FAIL: incident did not settle (need stages>=4, escalated>=8, actions>=3) in time"
 ver = httpx.get(f"{B}/audit/verify", headers=H, timeout=15).json()
-ac = sum(1 for a in httpx.get(f"{B}/alerts?limit=300", headers=H, timeout=15).json()["alerts"] if a["status"] == "auto_closed")
 assert acts >= 3, f"FAIL: expected >=3 staged actions, got {acts}"
 assert ver.get("ok"), f"FAIL: audit chain not ok: {ver}"
 print(f"\nSMOKETEST PASS  inv={inv['id']}  stages={inv['stage_count']}  "
-      f"actions={acts}  auto_closed={ac}  audit_ok={ver['ok']}")
+      f"actions={acts}  auto_closed={auto_closed}/{auto_closed + escalated}  audit_ok={ver['ok']}")
 PY
 
 echo ""
