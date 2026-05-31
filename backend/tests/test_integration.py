@@ -124,3 +124,76 @@ def test_audit_chain_verifies_then_tamper_breaks_it(api):
     broken = api.get("/audit/verify", headers=H).json()
     assert broken["ok"] is False
     assert broken["broken_index"] == 0
+
+
+# ---------------- R7/R8: actions + approval gate ----------------
+
+ATEN = f"atest_{secrets.token_hex(3)}"
+_TOK = secrets.token_hex(3)
+_IDS = {"alert": f"alt_{_TOK}", "inv": f"inv_{_TOK}",
+        "block": f"actb_{_TOK}", "revoke": f"actr_{_TOK}", "reject": f"actx_{_TOK}"}
+AH = {"X-Tenant-Id": ATEN}
+
+
+async def _seed_actions() -> None:
+    import asyncpg
+
+    dsn = settings.postgres_dsn.replace("+asyncpg", "")
+    conn = await asyncpg.connect(dsn=dsn)
+    try:
+        await conn.execute(
+            "INSERT INTO alerts (id,tenant_id,source,source_event_type,ts,severity_hint,title,status,raw,created_at)"
+            " VALUES ($1,$2,'aws_cloudtrail','iam:CreateAccessKey',now(),'high','seed','escalated','{}'::jsonb,now())",
+            _IDS["alert"], ATEN)
+        await conn.execute(
+            "INSERT INTO investigations (id,tenant_id,trigger_alert_id,status,summary,scores,kill_chain,data_provenance,created_at,updated_at)"
+            " VALUES ($1,$2,$3,'awaiting_approval','seed','{}'::jsonb,'[]'::jsonb,'{}'::jsonb,now(),now())",
+            _IDS["inv"], ATEN, _IDS["alert"])
+        for aid, typ, params, confirm in [
+            (_IDS["block"], "block_ip", '{"cidr":"185.220.101.0/24"}', False),
+            (_IDS["revoke"], "revoke_aws_keys", '{"user":"ci-svc"}', True),
+            (_IDS["reject"], "block_ip", '{"cidr":"10.0.0.0/24"}', False),
+        ]:
+            await conn.execute(
+                "INSERT INTO actions (id,investigation_id,tenant_id,type,params,rationale,status,requires_second_confirm,dry_run,result,staged_at)"
+                " VALUES ($1,$2,$3,$4,$5::jsonb,'seed','staged',$6,true,'{}'::jsonb,now())",
+                aid, _IDS["inv"], ATEN, typ, params, confirm)
+    finally:
+        await conn.close()
+
+
+@pytest.fixture(scope="module")
+def seeded(api):
+    asyncio.run(_seed_actions())
+    return _IDS
+
+
+def test_approve_reversible_action_executes_dry_run(api, seeded):
+    r = api.post(f"/actions/{seeded['block']}/approve", headers=AH)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "executed"
+    assert body["result"]["dry_run"] is True
+
+
+def test_irreversible_action_needs_second_confirm(api, seeded):
+    r1 = api.post(f"/actions/{seeded['revoke']}/approve", headers=AH)
+    assert r1.status_code == 200
+    assert r1.json()["status"] == "awaiting_confirm"
+    assert "irreversible" in r1.json()["message"].lower()
+
+    r2 = api.post(f"/actions/{seeded['revoke']}/approve?confirm=true", headers=AH)
+    assert r2.json()["status"] == "executed"
+
+
+def test_reject_action(api, seeded):
+    r = api.post(f"/actions/{seeded['reject']}/reject", headers=AH)
+    assert r.json()["status"] == "rejected"
+    # cannot re-decide
+    assert api.post(f"/actions/{seeded['reject']}/approve", headers=AH).status_code == 409
+
+
+def test_actions_listed_and_audit_intact(api, seeded):
+    lst = api.get("/actions", headers=AH).json()
+    assert lst["count"] >= 3
+    assert api.get("/audit/verify", headers=AH).json()["ok"] is True

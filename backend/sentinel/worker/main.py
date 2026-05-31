@@ -30,12 +30,14 @@ async def _ingest_loop(stop: asyncio.Event) -> None:
 
 
 async def _investigation_loop(stop: asyncio.Event) -> None:
+    from sentinel.actions.generator import expire_stale_actions
     from sentinel.agents.investigation import run_investigation
 
     while not stop.is_set():
         try:
             for tenant_id, inv_id in await pop_ready_investigations():
                 await run_investigation(tenant_id, inv_id)
+            await expire_stale_actions()
         except Exception as exc:
             log.error("worker.investigation_failed", error=str(exc))
         try:

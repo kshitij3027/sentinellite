@@ -228,9 +228,12 @@ async def run_investigation(tenant_id: str, inv_id: str) -> None:
     """Heavy: parallel domain agents (R5) + correlation (R6). Findings and the
     kill-chain reflect all currently-attached alerts. Debounced by the worker."""
     await run_domain_agents(tenant_id, inv_id)
+    from sentinel.actions.generator import generate_actions
     from sentinel.agents.correlator import run_correlator
 
     await run_correlator(tenant_id, inv_id)
+    # R7: stage recommended response actions; investigation -> awaiting_approval.
+    await generate_actions(tenant_id, inv_id)
 
 
 async def investigate_escalation(tenant_id: str, alert_id: str) -> str | None:

@@ -13,6 +13,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from sentinel import __version__
 from sentinel import metrics as _metrics  # noqa: F401  (registers Prometheus series)
+from sentinel.api.routes import actions as actions_routes
 from sentinel.api.routes import alerts as alerts_routes
 from sentinel.api.routes import audit as audit_routes
 from sentinel.api.routes import ingest as ingest_routes
@@ -75,6 +76,7 @@ app.include_router(ingest_routes.router)
 app.include_router(alerts_routes.router)
 app.include_router(audit_routes.router)
 app.include_router(investigations_routes.router)
+app.include_router(actions_routes.router)
 
 
 @app.get("/health", tags=["meta"])

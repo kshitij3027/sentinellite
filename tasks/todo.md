@@ -59,12 +59,12 @@
 - [x] mitre.py catalog + classifier; detection/indicators.py threat+noise heuristics
 - [x] 49 tests green; live e2e: 7-stage kill chain, rich domain findings, scores 100/100/92
 
-## Milestone 3 — Response actions & approval gate (R7, R8)
-- [ ] Action generation w/ pre-filled params
-- [ ] Typed executors (dry-run by default; per-executor live flag)
-- [ ] Two-tier blocklist (irreversible actions need 2nd confirm)
-- [ ] `POST /actions/{id}/approve|reject` + approval timeout
-- [ ] Tests
+## Milestone 3 — Response actions & approval gate (R7, R8)  ✅ DONE
+- [x] Action generation w/ pre-filled params + rationale (IOC->action mapping, deduped)
+- [x] Typed executors (dry-run by default; live deliberately unconfigured in MVP)
+- [x] Two-tier blocklist (revoke_aws_keys/delete_iam_user need confirm=true)
+- [x] `POST /actions/{id}/approve|reject` (+ ?confirm), GET /actions[/id], approval-timeout sweep
+- [x] Wired into investigation (post-correlate -> awaiting_approval); 57 tests green
 
 ## Milestone 4 — CLI & datasets (R11, R12)
 - [ ] `sentinel` CLI (typer)
