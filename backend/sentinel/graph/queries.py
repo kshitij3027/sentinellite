@@ -29,29 +29,29 @@ async def entity_neighborhood(tenant_id: str, value: str, limit: int = 50) -> li
 
 async def alert_subgraph(tenant_id: str, alert_ids: list[str]) -> dict:
     """Nodes + edges around a set of alerts, shaped for react-force-graph-2d."""
-    nodes = await run_read(
-        "MATCH (a:Alert)-[:OBSERVED]->(n) WHERE a.id IN $ids "
-        "RETURN DISTINCT elementId(n) AS id, labels(n)[0] AS label, "
-        "coalesce(n.name,n.addr,n.arn,n.cmdline) AS value",
-        ids=alert_ids,
-    )
     alert_nodes = await run_read(
         "MATCH (a:Alert) WHERE a.id IN $ids "
         "RETURN a.id AS id, 'Alert' AS label, a.event_type AS value, a.severity_hint AS severity",
         ids=alert_ids,
     )
-    edges = await run_read(
-        "MATCH (a:Alert)-[r]->(n) WHERE a.id IN $ids "
-        "RETURN a.id AS source, elementId(n) AS target, type(r) AS rel",
+    entity_nodes = await run_read(
+        "MATCH (a:Alert)-[:OBSERVED]->(n) WHERE a.id IN $ids "
+        "RETURN DISTINCT elementId(n) AS id, labels(n)[0] AS label, "
+        "coalesce(n.name,n.addr,n.arn,n.cmdline) AS value",
         ids=alert_ids,
     )
-    inter = await run_read(
-        "MATCH (s)-[r]->(d) WHERE NOT s:Alert AND NOT d:Alert AND s.tenant_id=$t "
-        "AND any(a IN $ids WHERE (a)<-[]-() OR true) "
-        "RETURN elementId(s) AS source, elementId(d) AS target, type(r) AS rel LIMIT 200",
-        t=tenant_id, ids=alert_ids,
+    observed = await run_read(
+        "MATCH (a:Alert)-[:OBSERVED]->(n) WHERE a.id IN $ids "
+        "RETURN a.id AS source, elementId(n) AS target, 'OBSERVED' AS rel",
+        ids=alert_ids,
     )
-    return {"nodes": alert_nodes + nodes, "edges": edges + inter}
+    # domain edges between entities reachable from the member alerts
+    domain = await run_read(
+        "MATCH (a:Alert)-[:OBSERVED]->(s)-[r]->(d) WHERE a.id IN $ids AND type(r) <> 'OBSERVED' "
+        "RETURN DISTINCT elementId(s) AS source, elementId(d) AS target, type(r) AS rel LIMIT 200",
+        ids=alert_ids,
+    )
+    return {"nodes": alert_nodes + entity_nodes, "edges": observed + domain}
 
 
 async def graph_stats(tenant_id: str) -> dict:

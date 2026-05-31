@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import asyncio
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sse_starlette.sse import EventSourceResponse
 
 from sentinel.api.deps import tenant_id
 from sentinel.api.serializers import (
@@ -15,6 +19,8 @@ from sentinel.api.serializers import (
 )
 from sentinel.db.base import get_session
 from sentinel.db.models import Action, AgentFinding, Alert, Investigation
+from sentinel.graph.queries import alert_subgraph
+from sentinel.queue import get_redis, trace_channel
 
 router = APIRouter(tags=["investigations"])
 
@@ -70,3 +76,46 @@ async def get_investigation(
     d["findings"] = [agent_finding(f) for f in findings]
     d["actions"] = [action_brief(a) for a in actions]
     return d
+
+
+@router.get("/investigations/{inv_id}/graph")
+async def investigation_graph(
+    inv_id: str,
+    session: AsyncSession = Depends(get_session),
+    tenant: str = Depends(tenant_id),
+) -> dict:
+    """Nodes + edges for the attack-graph view (react-force-graph-2d)."""
+    ids = list((
+        await session.execute(
+            select(Alert.id).where(Alert.investigation_id == inv_id, Alert.tenant_id == tenant)
+        )
+    ).scalars().all())
+    if not ids:
+        return {"nodes": [], "edges": []}
+    try:
+        return await alert_subgraph(tenant, ids)
+    except Exception:
+        return {"nodes": [], "edges": []}
+
+
+@router.get("/investigations/{inv_id}/stream")
+async def investigation_stream(inv_id: str, request: Request) -> EventSourceResponse:
+    """Server-Sent Events: live agent-trace deltas for an investigation (R10)."""
+
+    async def gen():
+        pubsub = get_redis().pubsub()
+        await pubsub.subscribe(trace_channel(inv_id))
+        try:
+            yield {"event": "hello", "data": json.dumps({"investigation_id": inv_id})}
+            while not await request.is_disconnected():
+                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if msg and msg.get("type") == "message":
+                    yield {"event": "trace", "data": msg["data"]}
+                else:
+                    yield {"event": "ping", "data": "{}"}
+                await asyncio.sleep(0)
+        finally:
+            await pubsub.unsubscribe(trace_channel(inv_id))
+            await pubsub.aclose()
+
+    return EventSourceResponse(gen())
