@@ -68,6 +68,26 @@ def version() -> None:
     console.print(f"SentinelLite [bold cyan]v{__version__}[/]")
 
 
+@app.command()
+def report(
+    inv_id: str = typer.Argument(..., help="investigation id, e.g. inv_2db11040"),
+    tenant: str = typer.Option("default"),
+    out: str = typer.Option(None, help="output path (default <inv_id>.pdf)"),
+    api: str = typer.Option(None, help="control-plane base URL"),
+) -> None:
+    """Generate a one-page PDF incident report for an investigation (B4)."""
+    api_base = api or settings.api_base_url
+    r = httpx.get(f"{api_base}/investigations/{inv_id}/report.pdf",
+                  headers={"X-Tenant-Id": tenant}, timeout=30)
+    if r.status_code != 200:
+        console.print(f"[red]error {r.status_code}:[/] {r.text[:200]}")
+        raise typer.Exit(1)
+    path = out or f"{inv_id}.pdf"
+    with open(path, "wb") as f:
+        f.write(r.content)
+    console.print(f"[green]Wrote {path}[/] ({len(r.content):,} bytes) — forward this PDF.")
+
+
 @datasets_app.command("verify")
 def datasets_verify() -> None:
     """Verify the bundled curated subset against its pinned sha256."""

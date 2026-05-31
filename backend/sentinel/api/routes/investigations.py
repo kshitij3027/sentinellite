@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -17,6 +17,7 @@ from sentinel.api.serializers import (
     alert_brief,
     investigation_full,
 )
+from sentinel.audit.chain import verify_chain
 from sentinel.db.base import get_session
 from sentinel.db.models import Action, AgentFinding, Alert, Investigation
 from sentinel.graph.queries import alert_subgraph
@@ -76,6 +77,37 @@ async def get_investigation(
     d["findings"] = [agent_finding(f) for f in findings]
     d["actions"] = [action_brief(a) for a in actions]
     return d
+
+
+@router.get("/investigations/{inv_id}/report.pdf")
+async def investigation_report(
+    inv_id: str,
+    session: AsyncSession = Depends(get_session),
+    tenant: str = Depends(tenant_id),
+) -> Response:
+    """Auto-generated one-page PDF incident report (B4)."""
+    inv = (
+        await session.execute(
+            select(Investigation).where(Investigation.id == inv_id, Investigation.tenant_id == tenant)
+        )
+    ).scalar_one_or_none()
+    if inv is None:
+        raise HTTPException(404, f"investigation '{inv_id}' not found")
+    findings = (await session.execute(
+        select(AgentFinding).where(AgentFinding.investigation_id == inv_id))).scalars().all()
+    actions = (await session.execute(
+        select(Action).where(Action.investigation_id == inv_id))).scalars().all()
+    audit = await verify_chain(session, tenant)
+
+    d = investigation_full(inv)
+    d["findings"] = [agent_finding(f) for f in findings]
+    d["actions"] = [action_brief(a) for a in actions]
+
+    from sentinel.report.pdf import build_report
+
+    pdf = build_report(d, audit_ok=audit.get("ok"))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{inv_id}.pdf"'})
 
 
 @router.get("/investigations/{inv_id}/graph")
