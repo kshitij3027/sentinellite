@@ -37,7 +37,9 @@ class Settings(BaseSettings):
     investigation_budget_tokens: int = 30_000
     investigation_debounce_s: float = 6.0  # quiet period before running a (re)investigation
     worker_poll_dirty_s: float = 2.0
-    agent_timeout_s: float = 45.0
+    agent_timeout_s: float = 30.0
+    investigation_agent_timeout_s: float = 20.0  # shorter: enrichment is best-effort
+    investigation_llm_narratives: bool = False  # per-domain LLM prose (slow on CPU); findings stay deterministic
     # circuit breaker (OB4)
     breaker_fail_threshold: int = 3
     breaker_reset_s: float = 30.0

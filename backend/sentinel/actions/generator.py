@@ -3,6 +3,7 @@ pre-filled parameters and a rationale, and expire stale approvals."""
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
@@ -38,6 +39,16 @@ def _cidr24(ip: str) -> str:
     return f"{ip}/32"
 
 
+_PKG_RE = re.compile(r"([A-Za-z0-9_.\-]+)@(\d+\.\d+\.\d+)")
+
+
+def _package_of(alert: Alert) -> str | None:
+    if alert.package:
+        return alert.package
+    m = _PKG_RE.search(str(alert.raw))  # e.g. "lodash@4.17.15" in a commit message
+    return f"{m.group(1)}@{m.group(2)}" if m else None
+
+
 def _aws_user(alert: Alert) -> str:
     raw = alert.raw if isinstance(alert.raw, dict) else {}
     rp = raw.get("requestParameters") or {}
@@ -62,10 +73,12 @@ def recommend_actions(members: list[Alert]) -> list[tuple[str, dict, str]]:
         techs = classify(m)
         ev = m.source_event_type.split(":")[-1]
 
-        if m.package and "T1195.002" in techs:
-            name, _, ver = m.package.partition("@")
-            add("quarantine_package", {"name": name, "version": ver or "unknown"},
-                f"Compromised dependency {m.package} executed a malicious postinstall in CI (evidence {m.id}).")
+        if "T1195.002" in techs:
+            pkg = _package_of(m)
+            if pkg:
+                name, _, ver = pkg.partition("@")
+                add("quarantine_package", {"name": name, "version": ver or "unknown"},
+                    f"Compromised dependency {pkg} executed a malicious postinstall in CI (evidence {m.id}).")
 
         if is_suspicious_ip(m.source_ip):
             add("block_ip", {"cidr": _cidr24(m.source_ip)},

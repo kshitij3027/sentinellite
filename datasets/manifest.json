@@ -1,0 +1,99 @@
+{
+  "_comment": "Public attack datasets used by SentinelLite. `curated` files ship in-repo (offline demo) and are integrity-checked by sha256. `sources` are full public downloads fetched on demand by `sentinel datasets fetch` into datasets/raw/.",
+  "curated": [
+    {
+      "name": "splunk_createaccesskey.json",
+      "path": "curated/splunk_createaccesskey.json",
+      "bytes": 89943,
+      "sha256": "88c3aadd3cd9afc4db25fecd488b7eced3b1e0160f1f20592c043b327e853a8e",
+      "format": "ndjson_cloudtrail",
+      "source_name": "Splunk attack_data (T1078/aws_createaccesskey)",
+      "source_url": "https://media.githubusercontent.com/media/splunk/attack_data/master/datasets/attack_techniques/T1078/aws_createaccesskey/aws_cloudtrail_events.json",
+      "license": "Apache-2.0",
+      "used_for": "Real CreateAccessKey persistence events (kill-chain stage)"
+    },
+    {
+      "name": "splunk_s3_exfil.json",
+      "path": "curated/splunk_s3_exfil.json",
+      "bytes": 160393,
+      "sha256": "c71e5bf5d092955415d3a94f446681a1bc55a66f0d765b2cf9b3718edbf7461b",
+      "format": "ndjson_cloudtrail",
+      "source_name": "Splunk attack_data (T1530/aws_exfil_high_no_getobject)",
+      "source_url": "https://media.githubusercontent.com/media/splunk/attack_data/master/datasets/attack_techniques/T1530/aws_exfil_high_no_getobject/cloudtrail.json",
+      "license": "Apache-2.0",
+      "used_for": "Real 100x GetObject S3 exfiltration burst (kill-chain stage)"
+    },
+    {
+      "name": "splunk_login_sfa.json",
+      "path": "curated/splunk_login_sfa.json",
+      "bytes": 2272,
+      "sha256": "395d8a667d12577fe83116c5fd0d850ea1b27dd21b1e303d08529869a5872b9a",
+      "format": "ndjson_cloudtrail",
+      "source_name": "Splunk attack_data (T1078.004/aws_login_sfa)",
+      "source_url": "https://media.githubusercontent.com/media/splunk/attack_data/master/datasets/attack_techniques/T1078.004/aws_login_sfa/cloudtrail.json",
+      "license": "Apache-2.0",
+      "used_for": "Real single-factor ConsoleLogin shape"
+    },
+    {
+      "name": "ghsa_lodash.json",
+      "path": "curated/ghsa_lodash.json",
+      "bytes": 4272,
+      "sha256": "3060fadb9a686e5041d53fe5c20c7844b2a0a49ce8d7b3d89d70703be02ec4f1",
+      "format": "osv_advisory",
+      "source_name": "GitHub Advisory Database (GHSA-35jh-r3h4-6jhm / CVE-2021-23337)",
+      "source_url": "https://raw.githubusercontent.com/github/advisory-database/main/advisories/github-reviewed/2021/05/GHSA-35jh-r3h4-6jhm/GHSA-35jh-r3h4-6jhm.json",
+      "license": "CC-BY-4.0",
+      "used_for": "Real lodash command-injection advisory backing the supply-chain compromise"
+    },
+    {
+      "name": "invictus_aws_small.json",
+      "path": "curated/invictus_aws_small.json",
+      "bytes": 1074,
+      "sha256": "f2cd671e0b6472fc4ddeb325f837e09ad6bb77e1c6f6851ec9876e6f5fd3c0f4",
+      "format": "records_cloudtrail",
+      "source_name": "invictus-ir/aws_dataset",
+      "source_url": "https://raw.githubusercontent.com/invictus-ir/aws_dataset/main/CloudTrail/218007301253_CloudTrail_us-east-1_20230710T1235Z_Vp7r3boWJKtPb3wM.json",
+      "license": "MIT",
+      "used_for": "Benign CloudTrail read sample"
+    },
+    {
+      "name": "invictus_aws_bulk.json",
+      "path": "curated/invictus_aws_bulk.json",
+      "bytes": 521389,
+      "sha256": "532219dbf2a5e25b6ce6cb5f0101d7163a44dfd7d68460c58614dd9337ff32cf",
+      "format": "records_cloudtrail",
+      "source_name": "invictus-ir/aws_dataset",
+      "source_url": "https://raw.githubusercontent.com/invictus-ir/aws_dataset/main/CloudTrail/218007301253_CloudTrail_us-east-1_20230710T1200Z_iLj9fb7yyUG9X4Bf.json",
+      "license": "MIT",
+      "used_for": "394 real CloudTrail events — benign read/list noise corpus"
+    }
+  ],
+  "sources": [
+    {
+      "name": "flaws_cloudtrail_logs.tar",
+      "url": "https://summitroute.com/downloads/flaws_cloudtrail_logs.tar",
+      "approx_bytes": 251688960,
+      "sha256": null,
+      "license": "Public research release (Scott Piper / Summit Route)",
+      "note": "~1.9M anonymized CloudTrail events; gzipped {Records:[]} chunks inside the tar. No published checksum; pinned on first fetch."
+    },
+    {
+      "name": "splunk_attack_data_index",
+      "url": "https://api.github.com/repos/splunk/attack_data/git/trees/master?recursive=1",
+      "license": "Apache-2.0",
+      "note": "Git-LFS repo; fetch data files via media.githubusercontent.com (not raw.githubusercontent.com)."
+    },
+    {
+      "name": "github_advisory_database",
+      "url": "https://github.com/github/advisory-database",
+      "license": "CC-BY-4.0",
+      "note": "OSV-schema advisories. OSV anonymous API: POST https://api.osv.dev/v1/query."
+    },
+    {
+      "name": "falco_rules",
+      "url": "https://raw.githubusercontent.com/falcosecurity/rules/main/rules/falco_rules.yaml",
+      "license": "Apache-2.0",
+      "note": "Stable Falco ruleset; rule tags carry MITRE technique IDs."
+    }
+  ]
+}

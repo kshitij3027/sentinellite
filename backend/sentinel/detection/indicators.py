@@ -89,22 +89,15 @@ def evaluate(alert) -> Signal:
             sig.matched.append("sensitive_bucket_exfil")
             sig.weight += 40
 
-    # Obvious-noise classification (only when nothing threatening matched).
-    if not sig.threat:
-        benign = False
-        if src == "aws_cloudtrail":
-            ev = et.split(":")[-1]
-            ro = bool(alert.raw.get("readOnly")) if isinstance(alert.raw, dict) else False
-            if (ro or ev.startswith(("Describe", "List", "Get"))) and not suspicious_ip:
-                benign = True
-        elif src == "okta_system_log":
-            outcome = (alert.raw.get("outcome") or {}).get("result") if isinstance(alert.raw, dict) else None
-            if outcome == "SUCCESS" and alert.severity_hint in ("info", "low"):
-                benign = True
-        elif src == "github":
-            if alert.severity_hint in ("info", "low") and not sig.techniques:
-                benign = True
-        if benign:
+    # Obvious-noise classification (only when no threat indicator matched and the
+    # source IP isn't suspicious). Low/info telemetry is auto-closable noise even
+    # if it nominally maps to a technique (e.g. a benign AssumeRole read).
+    if not sig.threat and not suspicious_ip:
+        ev = et.split(":")[-1]
+        ro = bool(alert.raw.get("readOnly")) if isinstance(alert.raw, dict) else False
+        if alert.severity_hint in ("info", "low"):
+            sig.matched.append("benign_pattern")
+        elif src == "aws_cloudtrail" and (ro or ev.startswith(("Describe", "List", "Get"))):
             sig.matched.append("benign_pattern")
 
     return sig

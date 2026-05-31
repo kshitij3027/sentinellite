@@ -66,12 +66,14 @@
 - [x] `POST /actions/{id}/approve|reject` (+ ?confirm), GET /actions[/id], approval-timeout sweep
 - [x] Wired into investigation (post-correlate -> awaiting_approval); 57 tests green
 
-## Milestone 4 — CLI & datasets (R11, R12)
-- [ ] `sentinel` CLI (typer)
-- [ ] `sentinel datasets fetch` w/ checksum verification
-- [ ] Curated ~50MB subset bundled in repo (offline demo)
-- [ ] `sentinel attack replay teampcp` (real dataset-backed sequence, ~3 min)
-- [ ] Provenance metadata on every replay
+## Milestone 4 — CLI & datasets (R11, R12)  ✅ DONE
+- [x] `sentinel` CLI (typer + rich): version, datasets verify/fetch, attack replay
+- [x] `sentinel datasets fetch` w/ sha256 checksum verification; AIRGAP-aware
+- [x] Curated real-dataset subset bundled (~780KB: Splunk attack_data, GHSA lodash, invictus)
+- [x] `sentinel attack replay teampcp` — dataset-backed 8-stage chain over ~3 min
+- [x] Provenance metadata (real datasets cited) on the investigation
+- [x] **Validated live: 8-stage MITRE kill chain, 84% noise auto-closed, 5 staged actions,
+      audit ok — SC1/SC3/SC4/SC5/SC6 all demonstrated. 62 tests green.**
 
 ## Milestone 5 — Dashboard (R10)
 - [ ] Next.js 15 + tailwind + shadcn/ui + react-query

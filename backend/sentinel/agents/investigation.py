@@ -17,6 +17,7 @@ from sentinel.audit.chain import append_event
 from sentinel.config import settings
 from sentinel.db.base import SessionLocal
 from sentinel.db.models import (
+    INV_AWAITING_APPROVAL,
     INV_RUNNING,
     AgentFinding,
     Alert,
@@ -80,7 +81,16 @@ async def _run_domain(name: str, instructions: str, alerts: list[Alert], tenant:
     iocs = facts["iocs"]
     summary = ""
     tokens = 0
-    if alerts:
+
+    def _deterministic() -> str:
+        ioc_vals = [i["value"] for i in iocs][:4]
+        return (f"{name} agent: {len(alerts)} alert(s) across techniques "
+                f"{facts['techniques'] or ['none']}; {len(iocs)} IOC(s): {ioc_vals}.")
+
+    if not alerts:
+        summary = f"{name} agent: no domain-relevant alerts."
+        AGENT_RUNS.labels(agent=f"agent:{name}", outcome="empty", tenant=tenant).inc()
+    elif settings.investigation_llm_narratives:
         prompt = (
             f"You are the {name} investigation agent. Analyze these correlated alerts in your "
             f"domain and summarize what the adversary did, then list IOCs.\n"
@@ -89,17 +99,11 @@ async def _run_domain(name: str, instructions: str, alerts: list[Alert], tenant:
         out, tokens = await run_agent(
             output_type=DomainOut, instructions=instructions, prompt=prompt,
             name=f"agent:{name}", tenant_id=tenant, max_tokens=400,
+            timeout=settings.investigation_agent_timeout_s,
         )
-        if out is not None:
-            summary = out.summary
-        else:
-            summary = (
-                f"{name} agent (heuristic): {len(alerts)} alert(s), techniques "
-                f"{facts['techniques']}, {len(iocs)} IOC(s)."
-            )
+        summary = out.summary if out is not None else _deterministic()
     else:
-        summary = f"{name} agent: no domain-relevant alerts."
-        AGENT_RUNS.labels(agent=f"agent:{name}", outcome="empty", tenant=tenant).inc()
+        summary = _deterministic()
 
     return {
         "agent": name,
@@ -156,10 +160,15 @@ async def run_domain_agents(tenant_id: str, inv_id: str) -> list[dict]:
 async def get_or_create_investigation(session: AsyncSession, alert: Alert) -> tuple[Investigation, bool]:
     """Attach to an open incident sharing this alert's scenario or a graph
     correlation; otherwise open a new investigation."""
+    # An "open" incident is anything not yet resolved — including one already
+    # awaiting approval (so later kill-chain stages attach instead of fragmenting).
     candidates = (
         await session.execute(
             select(Investigation)
-            .where(Investigation.tenant_id == alert.tenant_id, Investigation.status == INV_RUNNING)
+            .where(
+                Investigation.tenant_id == alert.tenant_id,
+                Investigation.status.in_([INV_RUNNING, INV_AWAITING_APPROVAL]),
+            )
             .order_by(Investigation.created_at.desc())
             .limit(20)
         )
@@ -225,15 +234,17 @@ async def attach_alert(tenant_id: str, alert_id: str) -> str | None:
 
 
 async def run_investigation(tenant_id: str, inv_id: str) -> None:
-    """Heavy: parallel domain agents (R5) + correlation (R6). Findings and the
-    kill-chain reflect all currently-attached alerts. Debounced by the worker."""
-    await run_domain_agents(tenant_id, inv_id)
+    """Parallel domain agents (R5) + correlation (R6). The deterministic kill
+    chain + staged actions land first and fast (correct even if every LLM times
+    out); the domain-agent narratives are best-effort enrichment after."""
     from sentinel.actions.generator import generate_actions
     from sentinel.agents.correlator import run_correlator
 
+    # Fast, deterministic: kill chain (R6) + staged actions (R7) -> awaiting_approval.
     await run_correlator(tenant_id, inv_id)
-    # R7: stage recommended response actions; investigation -> awaiting_approval.
     await generate_actions(tenant_id, inv_id)
+    # Best-effort enrichment: per-domain findings + narratives (R5).
+    await run_domain_agents(tenant_id, inv_id)
 
 
 async def investigate_escalation(tenant_id: str, alert_id: str) -> str | None:

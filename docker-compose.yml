@@ -68,7 +68,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     environment:
-      OLLAMA_NUM_PARALLEL: "4"     # allow triage + investigation calls to overlap
+      OLLAMA_NUM_PARALLEL: "2"     # modest overlap; avoids per-call latency blowup on CPU
       OLLAMA_KEEP_ALIVE: "30m"     # keep the model warm across the replay
     volumes:
       - ollamadata:/root/.ollama

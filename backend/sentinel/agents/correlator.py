@@ -12,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sentinel.agents.llm import run_agent
 from sentinel.audit.chain import append_event
+from sentinel.config import settings
 from sentinel.db.base import SessionLocal
-from sentinel.db.models import INV_RUNNING, Alert, Investigation, TriageResult
+from sentinel.db.models import Alert, Investigation, TriageResult
 from sentinel.logging import get_logger
 from sentinel.metrics import INVESTIGATION_LATENCY
 from sentinel.mitre import CATALOG, STAGE_ORDER, classify
@@ -93,18 +94,20 @@ def _datasets(members: list[Alert]) -> list[str]:
 
 async def run_correlator(tenant_id: str, inv_id: str) -> None:
     started = time.monotonic()
+
+    # --- 1) Deterministic: build + persist the kill chain immediately. This is
+    # the headline output and must be correct even if every LLM call times out.
     async with SessionLocal() as session:
         inv = (
             await session.execute(select(Investigation).where(Investigation.id == inv_id))
         ).scalar_one_or_none()
         if inv is None:
             return
-        members = (
+        members = list((
             await session.execute(
                 select(Alert).where(Alert.investigation_id == inv_id).order_by(Alert.ts.asc())
             )
-        ).scalars().all()
-        members = list(members)
+        ).scalars().all())
         triage_rows = list((
             await session.execute(
                 select(TriageResult).where(TriageResult.alert_id.in_([m.id for m in members]))
@@ -113,38 +116,18 @@ async def run_correlator(tenant_id: str, inv_id: str) -> None:
 
         steps = build_kill_chain(members)
         scores = _aggregate_scores(triage_rows)
-
-        headline = ""
-        summary = ""
-        if steps:
-            prompt = (
-                "Correlate this kill chain into one incident. Stages (time-ordered):\n"
-                + "\n".join(f"  t+{s['t_offset_s']}s {s['stage']} [{s['mitre']}] {s['summary']}" for s in steps)
-                + f"\nScores: {scores}. Write a one-line headline and a 3-5 sentence narrative."
-            )
-            out, _tokens = await run_agent(
-                output_type=CorrelatorOut,
-                instructions="You are the correlation agent in an autonomous SOC. Tell the attack story across domains, in order, citing the stages.",
-                prompt=prompt, name="agent:correlator", tenant_id=tenant_id, max_tokens=400,
-            )
-            if out is not None:
-                headline, summary = out.headline, out.summary
-        if not headline:
-            stages = " → ".join(dict.fromkeys(s["stage"] for s in steps)) or "no stages"
-            headline = f"{len(steps)}-stage incident: {stages}"
-        if not summary:
-            summary = f"Correlated {len(members)} alerts into {len(steps)} kill-chain stages."
+        stages = " → ".join(dict.fromkeys(s["stage"] for s in steps)) or "no stages"
+        deterministic_summary = f"{len(steps)}-stage incident: {stages}"
 
         inv.kill_chain = steps
         inv.scores = scores
-        inv.summary = f"{headline} — {summary}"
+        if not inv.summary or inv.summary.endswith("stages") or " — " not in inv.summary:
+            inv.summary = deterministic_summary
         inv.data_provenance = {
             "scenario": (inv.data_provenance or {}).get("scenario"),
             "sources": sorted({m.source for m in members}),
             "datasets": _datasets(members),
         }
-        inv.status = INV_RUNNING  # M3 stages actions and moves to awaiting_approval
-
         await append_event(
             session, tenant_id=tenant_id, actor="agent:correlator",
             event_type="investigation.correlated",
@@ -152,10 +135,33 @@ async def run_correlator(tenant_id: str, inv_id: str) -> None:
                   "techniques": [s["mitre"] for s in steps], "scores": scores},
         )
         await session.commit()
-        created_at = inv.created_at
 
     INVESTIGATION_LATENCY.labels(tenant=tenant_id).observe(time.monotonic() - started)
-    await publish_trace(inv_id, {"type": "correlated", "headline": headline,
-                                 "kill_chain": steps, "scores": scores})
+    await publish_trace(inv_id, {"type": "correlated", "kill_chain": steps, "scores": scores})
     log.info("investigation.correlated", inv_id=inv_id, stages=len(steps),
              techniques=[s["mitre"] for s in steps], scores=scores)
+
+    # --- 2) Best-effort: an LLM narrative for the incident (short timeout). If it
+    # times out, the deterministic summary already persisted stands.
+    if not steps:
+        return
+    prompt = (
+        "Correlate this kill chain into one incident. Stages (time-ordered):\n"
+        + "\n".join(f"  t+{s['t_offset_s']}s {s['stage']} [{s['mitre']}] {s['summary']}" for s in steps)
+        + f"\nScores: {scores}. Write a one-line headline and a 3-5 sentence narrative."
+    )
+    out, _tokens = await run_agent(
+        output_type=CorrelatorOut,
+        instructions="You are the correlation agent in an autonomous SOC. Tell the attack story across domains, in order, citing the stages.",
+        prompt=prompt, name="agent:correlator", tenant_id=tenant_id, max_tokens=400,
+        timeout=settings.investigation_agent_timeout_s,
+    )
+    if out is not None:
+        async with SessionLocal() as session:
+            inv = (await session.execute(
+                select(Investigation).where(Investigation.id == inv_id)
+            )).scalar_one_or_none()
+            if inv is not None:
+                inv.summary = f"{out.headline} — {out.summary}"
+                await session.commit()
+        await publish_trace(inv_id, {"type": "narrative", "headline": out.headline})

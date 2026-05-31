@@ -21,4 +21,18 @@ Patterns learned from corrections and mistakes. Reviewed at session start.
   benign events; the Pydantic-AI triage agent runs only on interesting ones.
   Keeps SC1 (<3 min) achievable and mirrors real SOC rule-then-analyst flow.
 
+## Pipeline correctness must not depend on the LLM keeping up (M4)
+- On CPU Ollama, concurrent LLM calls (triage + 3 domain agents + correlator)
+  contend and TIME OUT, making investigation runs slow so the kill chain lags
+  behind attached alerts. Fix: persist the DETERMINISTIC kill chain + staged
+  actions FIRST and fast; run LLM narratives best-effort with short timeouts
+  (investigation_agent_timeout_s). The headline output is always correct; the
+  LLM only enriches the prose.
+- Incident grouping: match OPEN investigations in status (running OR
+  awaiting_approval) — else alerts arriving after the first action-staging
+  fragment into new investigations. [[]]
+- Noise filter: low/info, non-suspicious-IP, no-threat-indicator alerts are
+  auto-closable even if they nominally map to a MITRE technique (benign
+  AssumeRole reads) — don't gate noise on `classify()` being empty.
+
 ## (add new lessons below as corrections happen)
