@@ -28,10 +28,14 @@ class Settings(BaseSettings):
     triage_autoclose_conf: float = 0.90
     triage_autoclose_max_sev: Severity = "low"
 
+    # --- triage LLM policy ---
+    triage_llm_all: bool = False  # False: LLM only for non-noise alerts (fast). True: every alert.
+    llm_max_tokens: int = 700
+
     # --- investigation (R5/R6) ---
     investigation_parallelism: int = 3
     investigation_budget_tokens: int = 30_000
-    agent_timeout_s: float = 60.0
+    agent_timeout_s: float = 45.0
     # circuit breaker (OB4)
     breaker_fail_threshold: int = 3
     breaker_reset_s: float = 30.0
