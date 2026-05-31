@@ -48,14 +48,16 @@
 - [x] Audit log w/ SHA-256 hash chain (advisory-lock serialized) + tamper detection
 - [x] 35 tests pass in Docker (schemas, hash chain unit + integration: ingest/graph/audit/tamper)
 
-## Milestone 2 — Agents & triage (R3, R4, R5, R6)
-- [ ] Ollama client + LLM provider abstraction (ollama/openrouter/openai/anthropic)
-- [ ] TriageAgent: Severity/Confidence/Priority + CoT + evidence (persisted)
-- [ ] Auto-close vs escalate (configurable thresholds)
-- [ ] Parallel investigation: Identity / Endpoint / SupplyChain via asyncio.gather
-- [ ] CorrelatorAgent: merge findings, walk graph, kill-chain timeline w/ MITRE IDs
-- [ ] Circuit breaker per agent (OB4)
-- [ ] Tests (mock LLM for determinism)
+## Milestone 2 — Agents & triage (R3, R4, R5, R6)  ✅ DONE
+- [x] LLM provider abstraction (ollama default) — NativeOutput for reliable small-model JSON
+- [x] TriageAgent: Severity/Confidence/Priority + CoT + evidence (persisted); two-stage
+      (deterministic noise filter + LLM for interesting alerts) for SC1 budget
+- [x] Auto-close vs escalate per R4 (confidence>=0.9 AND severity<=low), configurable
+- [x] Parallel investigation: Identity/Endpoint/SupplyChain via asyncio.gather (R5)
+- [x] CorrelatorAgent: kill-chain timeline w/ verified MITRE IDs + graph-path citation (R6)
+- [x] Circuit breaker per agent (OB4) + debounced investigation scheduling (decoupled worker)
+- [x] mitre.py catalog + classifier; detection/indicators.py threat+noise heuristics
+- [x] 49 tests green; live e2e: 7-stage kill chain, rich domain findings, scores 100/100/92
 
 ## Milestone 3 — Response actions & approval gate (R7, R8)
 - [ ] Action generation w/ pre-filled params

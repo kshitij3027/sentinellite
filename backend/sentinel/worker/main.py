@@ -1,5 +1,7 @@
-"""Background worker pool entrypoint. Consumes the Redis ingest queue and runs
-the triage -> investigate -> correlate -> stage-actions pipeline."""
+"""Background worker. Two concurrent loops:
+  1. ingest loop  — drains the Redis queue and triages each alert (fast).
+  2. investigation loop — runs debounced incident investigations (heavy: R5/R6).
+Decoupling keeps triage responsive while investigations settle."""
 
 from __future__ import annotations
 
@@ -9,10 +11,37 @@ import signal
 from sentinel.config import settings
 from sentinel.logging import configure_logging, get_logger
 from sentinel.metrics import QUEUE_DEPTH
-from sentinel.queue import dequeue_alert, queue_depth
+from sentinel.queue import dequeue_alert, pop_ready_investigations, queue_depth
 from sentinel.worker.pipeline import process_alert
 
 log = get_logger("worker")
+
+
+async def _ingest_loop(stop: asyncio.Event) -> None:
+    while not stop.is_set():
+        try:
+            item = await dequeue_alert(timeout=2)
+            if item:
+                QUEUE_DEPTH.labels(queue="ingest").set(await queue_depth())
+                await process_alert(item["tenant_id"], item["alert_id"])
+        except Exception as exc:
+            log.error("worker.ingest_failed", error=str(exc))
+            await asyncio.sleep(0.5)
+
+
+async def _investigation_loop(stop: asyncio.Event) -> None:
+    from sentinel.agents.investigation import run_investigation
+
+    while not stop.is_set():
+        try:
+            for tenant_id, inv_id in await pop_ready_investigations():
+                await run_investigation(tenant_id, inv_id)
+        except Exception as exc:
+            log.error("worker.investigation_failed", error=str(exc))
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=settings.worker_poll_dirty_s)
+        except asyncio.TimeoutError:
+            pass
 
 
 async def run() -> None:
@@ -26,15 +55,7 @@ async def run() -> None:
         except NotImplementedError:  # pragma: no cover
             pass
 
-    while not stop.is_set():
-        try:
-            item = await dequeue_alert(timeout=3)
-            if item:
-                QUEUE_DEPTH.labels(queue="ingest").set(await queue_depth())
-                await process_alert(item["tenant_id"], item["alert_id"])
-        except Exception as exc:  # never let one bad alert kill the worker
-            log.error("worker.process_failed", error=str(exc))
-            await asyncio.sleep(0.5)
+    await asyncio.gather(_ingest_loop(stop), _investigation_loop(stop))
     log.info("worker.shutdown")
 
 

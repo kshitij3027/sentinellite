@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,8 @@ async def ingest(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant: str = Depends(tenant_id),
+    x_scenario: str | None = Header(default=None, alias="X-Scenario"),
+    x_replay_offset: int | None = Header(default=None, alias="X-Replay-Offset"),
 ) -> dict:
     if source not in SOURCES:
         raise HTTPException(404, f"unknown source '{source}'; expected one of {list(SOURCES)}")
@@ -33,7 +35,8 @@ async def ingest(
     event_name = request.headers.get("X-GitHub-Event")  # github event name lives in the header
     try:
         alert = await ingest_alert(
-            session, source, payload, event_name=event_name, tenant_id=tenant
+            session, source, payload, event_name=event_name, tenant_id=tenant,
+            scenario=x_scenario, t_offset_s=x_replay_offset,
         )
     except ValidationError as exc:
         raise HTTPException(422, detail=exc.errors())

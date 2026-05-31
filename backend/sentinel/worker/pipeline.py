@@ -30,10 +30,8 @@ async def process_alert(tenant_id: str, alert_id: str) -> None:
         triage = await triage_alert(session, alert)
 
     if triage.decision == "escalate":
-        # Investigation pipeline (R5/R6) is dispatched here.
-        try:
-            from sentinel.agents.investigation import investigate_escalation
+        # Fast: attach to the incident + mark dirty. The heavy domain-agent +
+        # correlator run is debounced by the worker's investigation loop (R5/R6).
+        from sentinel.agents.investigation import attach_alert
 
-            await investigate_escalation(tenant_id, alert_id)
-        except ImportError:
-            log.info("pipeline.escalated_no_investigator", alert_id=alert_id)
+        await attach_alert(tenant_id, alert_id)

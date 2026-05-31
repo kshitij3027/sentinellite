@@ -16,6 +16,7 @@ from sentinel import metrics as _metrics  # noqa: F401  (registers Prometheus se
 from sentinel.api.routes import alerts as alerts_routes
 from sentinel.api.routes import audit as audit_routes
 from sentinel.api.routes import ingest as ingest_routes
+from sentinel.api.routes import investigations as investigations_routes
 from sentinel.config import settings
 from sentinel.db.base import init_db
 from sentinel.graph.client import close_driver, ensure_schema, verify_connectivity
@@ -73,6 +74,7 @@ app.add_middleware(
 app.include_router(ingest_routes.router)
 app.include_router(alerts_routes.router)
 app.include_router(audit_routes.router)
+app.include_router(investigations_routes.router)
 
 
 @app.get("/health", tags=["meta"])

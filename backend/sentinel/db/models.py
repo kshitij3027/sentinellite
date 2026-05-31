@@ -56,6 +56,7 @@ class Alert(Base):
     cloud_resource: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     status: Mapped[str] = mapped_column(String(16), default=ALERT_NEW, index=True)
+    investigation_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     dedup_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM), nullable=True)
     raw: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -67,6 +68,15 @@ class Alert(Base):
     triage: Mapped["TriageResult | None"] = relationship(back_populates="alert", uselist=False)
 
     __table_args__ = (Index("ix_alerts_tenant_status", "tenant_id", "status"),)
+
+    def entities(self) -> dict[str, str]:
+        """Non-null entity slots (mirrors NormalizedAlert.entities)."""
+        slots = {
+            "actor_identity": self.actor_identity, "source_ip": self.source_ip,
+            "asset": self.asset, "process": self.process, "package": self.package,
+            "repository": self.repository, "cloud_resource": self.cloud_resource,
+        }
+        return {k: v for k, v in slots.items() if v}
 
 
 class TriageResult(Base):

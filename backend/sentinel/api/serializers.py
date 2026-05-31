@@ -85,6 +85,17 @@ def investigation_full(inv: Investigation) -> dict:
     }
 
 
+def agent_finding(f) -> dict:
+    return {
+        "agent": f.agent,
+        "summary": (f.findings or {}).get("summary", ""),
+        "findings": f.findings,
+        "iocs": f.iocs,
+        "tokens": f.tokens,
+        "latency_ms": f.latency_ms,
+    }
+
+
 def action_brief(a: Action) -> dict:
     return {
         "id": a.id,

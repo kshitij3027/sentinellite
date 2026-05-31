@@ -67,6 +67,9 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    environment:
+      OLLAMA_NUM_PARALLEL: "4"     # allow triage + investigation calls to overlap
+      OLLAMA_KEEP_ALIVE: "30m"     # keep the model warm across the replay
     volumes:
       - ollamadata:/root/.ollama
     ports: ["11434:11434"]
