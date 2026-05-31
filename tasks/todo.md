@@ -107,4 +107,25 @@
 ---
 
 ## Review
-_(filled in as milestones complete)_
+
+**Delivered (all in Docker, committed + pushed to https://github.com/kshitij3027/sentinellite):**
+- **Core R1–R12:** ✅ all implemented and verified end-to-end.
+- **Extended:** DE1–DE3 (rules + hot-reload + 20 detections + tuner), TI1/TI3 (OSV.dev),
+  MT1 (tenant isolation) + MT2 (air-gap + runbook), OB1–OB4 (Prometheus/Grafana/structlog/breaker).
+- **Stretch:** B4 (PDF incident report). (B1/B2/B3/B5/B6 left as documented roadmap.)
+- **Tests:** 71 total (unit + live-datastore integration) green; 2 UI stories pass.
+
+**Success criteria:**
+- SC1 ✅ real-time end-to-end **139s** (< 180s), full kill chain.
+- SC2 ✅ `make smoketest-fresh` passes from a wiped slate, zero API keys.
+- SC3 ✅ 42/50 (84%) noise auto-closed; 8/8 true-positives escalated.
+- SC4 ✅ 8-stage kill chain, each a verified MITRE id + entity (graph-path) citation.
+- SC5 ✅ 5 actions staged; approve → dry-run executed (UI + API).
+- SC6 ✅ `/audit/verify` ok after replay; tamper → ok:false at broken index (tested).
+- SC7 ✅ Grafana 9 panels with live data (api + worker scraped).
+- SC8 ✅ `/ui-review` confirmed a first-time viewer sees trigger + story + pending actions.
+
+**Notable engineering decisions:** small CPU model + `NativeOutput`; deterministic-first
+pipeline (kill chain/actions never block on the LLM); debounced + concurrent worker;
+incident grouping by scenario/graph correlation; two-tier irreversible-action confirm.
+Gotchas captured in `tasks/lessons.md`.
