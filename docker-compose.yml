@@ -134,6 +134,17 @@ services:
       redis: { condition: service_healthy }
       ollama-init: { condition: service_completed_successfully }
 
+  dashboard:
+    build: ./dashboard
+    environment:
+      NEXT_PUBLIC_API_BASE: "http://localhost:8000"
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
+    ports: ["3000:3000"]
+    depends_on:
+      - api
+
   prometheus:
     image: prom/prometheus:latest
     volumes:
