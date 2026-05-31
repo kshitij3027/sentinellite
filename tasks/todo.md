@@ -82,10 +82,12 @@
 - [ ] Pending Actions view (approve/reject + reasoning)
 - [ ] Audit Log view w/ hash-chain status badge
 
-## Milestone 6 — Observability (OB1–OB4)
-- [ ] Prometheus metrics (6 panels worth)
-- [ ] Provisioned Grafana OSS dashboard (JSON)
-- [ ] structlog JSON (done in M1) + optional LangSmith flag
+## Milestone 6 — Observability (OB1–OB4)  ✅ DONE
+- [x] Prometheus metrics (all 6 headline signals + supporting), scraped from BOTH
+      api:8000 and worker:9100 (worker exposes its own /metrics)
+- [x] Provisioned Grafana OSS dashboard — 9 panels, anonymous access, live data verified
+- [x] structlog JSON (M1) + circuit breaker (OB4, M2); hash-chain-breaks gauge wired
+- [x] Verified: both scrape targets up; 42 auto-closed/8 escalated/4281 tokens in Prometheus
 
 ## Milestone 7 — Extended (as time allows)
 - [ ] DE1–DE3 detection rules + 20 starter detections + DetectionTunerAgent

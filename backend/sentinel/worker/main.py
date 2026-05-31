@@ -8,6 +8,8 @@ from __future__ import annotations
 import asyncio
 import signal
 
+from prometheus_client import start_http_server
+
 from sentinel.config import settings
 from sentinel.logging import configure_logging, get_logger
 from sentinel.metrics import QUEUE_DEPTH
@@ -15,6 +17,7 @@ from sentinel.queue import dequeue_alert, pop_ready_investigations, queue_depth
 from sentinel.worker.pipeline import process_alert
 
 log = get_logger("worker")
+METRICS_PORT = 9100
 
 
 async def _ingest_loop(stop: asyncio.Event) -> None:
@@ -48,6 +51,12 @@ async def _investigation_loop(stop: asyncio.Event) -> None:
 
 async def run() -> None:
     configure_logging()
+    # Expose the worker's metrics (triage/investigation/tokens/...) for Prometheus.
+    try:
+        start_http_server(METRICS_PORT)
+        log.info("worker.metrics_server", port=METRICS_PORT)
+    except Exception as exc:  # pragma: no cover
+        log.warning("worker.metrics_server_failed", error=str(exc))
     log.info("worker.startup", provider=settings.llm_provider, model=settings.llm_model)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
