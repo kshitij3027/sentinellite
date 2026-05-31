@@ -38,15 +38,15 @@
 - [x] Backend skeleton (config/logging/metrics/api/worker/cli) + 6 smoke tests passing
 - [x] **Validated: full stack boots healthy in Docker; model pulled; all endpoints green**
 
-## Milestone 1 — Backend data plane (R1, R2, R9)
-- [ ] FastAPI app skeleton + structured logging (structlog) + settings
-- [ ] Pydantic source schemas: github, aws_cloudtrail, okta_system_log, falco
-- [ ] Postgres models (alerts, investigations, actions, audit_events) + pgvector
-- [ ] Alembic-style migrations / init SQL
-- [ ] Neo4j graph hydration (nodes + edges per R2)
-- [ ] `POST /ingest/{source}` endpoints
-- [ ] Audit log w/ SHA-256 hash chain + `GET /audit/verify`
-- [ ] Backend tests in Docker (pytest) — schemas, ingestion, hash chain
+## Milestone 1 — Backend data plane (R1, R2, R9)  ✅ DONE
+- [x] FastAPI app skeleton + structured logging (structlog) + settings
+- [x] Pydantic source schemas: github, aws_cloudtrail, okta_system_log, falco
+- [x] Postgres models (alerts, triage, investigations, findings, actions, audit) + pgvector col
+- [x] Schema bootstrap via metadata.create_all + pgvector extension (no Alembic for MVP)
+- [x] Neo4j graph hydration (8 node labels + 5 domain rels + OBSERVED + CORRELATES_WITH)
+- [x] `POST /ingest/{source}` + `GET /alerts`, `/alerts/{id}`, `/audit`, `/audit/verify`, `/readyz`
+- [x] Audit log w/ SHA-256 hash chain (advisory-lock serialized) + tamper detection
+- [x] 35 tests pass in Docker (schemas, hash chain unit + integration: ingest/graph/audit/tamper)
 
 ## Milestone 2 — Agents & triage (R3, R4, R5, R6)
 - [ ] Ollama client + LLM provider abstraction (ollama/openrouter/openai/anthropic)
