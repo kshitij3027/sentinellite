@@ -1,7 +1,9 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
+SPEED ?= 1
+TENANT ?= default
 
-.PHONY: help build up up-fg down down-v restart logs ps test test-unit fetch replay shell-api smoketest-fresh fmt
+.PHONY: help build up up-fg down down-v restart logs ps test test-unit fetch replay shell-api smoketest-fresh ui-review rules fmt
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -41,14 +43,20 @@ test-unit: ## Run only fast unit tests (no datastores needed)
 fetch: ## Download public attack datasets (checksum-verified)
 	$(COMPOSE) run --rm api sentinel datasets fetch
 
-replay: ## Replay the TeamPCP supply-chain attack scenario
-	$(COMPOSE) run --rm api sentinel attack replay teampcp
+replay: ## Replay the TeamPCP supply-chain attack (override: make replay SPEED=6 TENANT=demo)
+	$(COMPOSE) run --rm api sentinel attack replay teampcp --speed $(SPEED) --tenant $(TENANT)
 
 shell-api: ## Open a shell in a one-off api container
 	$(COMPOSE) run --rm api bash
 
-smoketest-fresh: ## SC2 — wipe env, bring up, replay end-to-end, assert (implemented in M8)
-	@echo "smoketest-fresh — implemented in Milestone 8"
+smoketest-fresh: ## SC2 — fresh slate, no API keys, full replay end-to-end + assert
+	bash scripts/smoketest_fresh.sh
+
+ui-review: ## Run the dashboard verification stories (needs the stack up)
+	@echo "Run /ui-review in Claude Code (discovers verification/stories.yaml)"
+
+rules: ## List loaded detection rules
+	$(COMPOSE) run --rm --no-deps api sentinel rules list
 
 fmt: ## Format/lint backend (ruff)
 	$(COMPOSE) run --rm --no-deps api sh -c "pip install -q ruff && ruff check --fix sentinel && ruff format sentinel"

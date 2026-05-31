@@ -98,11 +98,11 @@
 - [ ] Stretch: B2 okta-breach, B3 eval harness, B4 PDF report, B6 flaws-real (time permitting)
 
 ## Milestone 8 — End-to-end verification
-- [ ] `verification/stories.yaml` (1–2 multi-step journeys)
-- [ ] `docker compose up` → fetch → replay end-to-end < 3 min (SC1)
-- [ ] `make smoketest-fresh` (SC2)
-- [ ] `/ui-review` all stories pass
-- [ ] README "Why I built this" + role mapping + zero-cost claim
+- [x] `verification/stories.yaml` (2 multi-step journeys) + .env(.example)
+- [x] `/ui-review` — both stories PASS (16/16, 7/7) against the live stack
+- [x] README "Why I built this" + role mapping + zero-cost claim + demo + screenshots
+- [x] `make smoketest-fresh` script (SC2)
+- [ ] Run smoketest-fresh from a wiped slate (final SC1/SC2 proof)
 
 ---
 
