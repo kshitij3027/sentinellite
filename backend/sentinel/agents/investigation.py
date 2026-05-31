@@ -212,28 +212,42 @@ async def get_or_create_investigation(session: AsyncSession, alert: Alert) -> tu
     return inv, True
 
 
+_attach_locks: dict[str, asyncio.Lock] = {}
+
+
+def _attach_lock(tenant_id: str) -> asyncio.Lock:
+    if tenant_id not in _attach_locks:
+        _attach_locks[tenant_id] = asyncio.Lock()
+    return _attach_locks[tenant_id]
+
+
 async def attach_alert(tenant_id: str, alert_id: str) -> str | None:
     """Fast, inline: attach an escalated alert to its incident investigation and
-    mark it dirty. The heavy agent run is debounced (see run_investigation)."""
-    async with SessionLocal() as session:
-        alert = (
-            await session.execute(
-                select(Alert).where(Alert.id == alert_id, Alert.tenant_id == tenant_id)
-            )
-        ).scalar_one_or_none()
-        if alert is None:
-            return None
-        inv, created = await get_or_create_investigation(session, alert)
-        alert.investigation_id = inv.id
-        await append_event(
-            session, tenant_id=tenant_id, actor="agent:investigation",
-            event_type="investigation.created" if created else "investigation.alert_attached",
-            data={"investigation_id": inv.id, "alert_id": alert_id, "trigger": inv.trigger_alert_id},
-        )
-        await session.commit()
-        inv_id = inv.id
+    mark it dirty. The heavy agent run is debounced (see run_investigation).
 
-    if created:
+    A per-tenant lock serializes get-or-create so concurrent triage workers can't
+    race to create duplicate investigations for the same incident."""
+    async with _attach_lock(tenant_id):
+        async with SessionLocal() as session:
+            alert = (
+                await session.execute(
+                    select(Alert).where(Alert.id == alert_id, Alert.tenant_id == tenant_id)
+                )
+            ).scalar_one_or_none()
+            if alert is None:
+                return None
+            inv, created = await get_or_create_investigation(session, alert)
+            alert.investigation_id = inv.id
+            await append_event(
+                session, tenant_id=tenant_id, actor="agent:investigation",
+                event_type="investigation.created" if created else "investigation.alert_attached",
+                data={"investigation_id": inv.id, "alert_id": alert_id, "trigger": inv.trigger_alert_id},
+            )
+            await session.commit()
+            inv_id = inv.id
+            created_flag = created
+
+    if created_flag:
         await publish_trace(inv_id, {"type": "investigation.created", "trigger": alert_id})
     await mark_investigation_dirty(tenant_id, inv_id, settings.investigation_debounce_s)
     return inv_id

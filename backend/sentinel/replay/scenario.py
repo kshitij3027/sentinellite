@@ -151,15 +151,23 @@ def _noise(count: int) -> list[dict]:
                        "payload": {"ref": "refs/heads/main",
                                    "head_commit": {"message": "docs: update", "modified": ["README.md"]},
                                    "repository": {"full_name": "teampcp/api"}, "sender": {"login": users[i % 3].split("@")[0]}}})
-    # spread evenly across the window so noise interleaves with the chain
+    # spread evenly across the attack window (last malicious is t+128s) so noise
+    # interleaves with the chain and emission ends with the attack (SC1 margin).
     n = len(events)
     for i, e in enumerate(events):
-        e["t"] = 2 + int(i * (163.0 / max(1, n)))
+        e["t"] = 2 + int(i * (126.0 / max(1, n)))
     return events
 
 
-def build_teampcp(noise_count: int = 42) -> list[dict]:
+def build_teampcp(noise_count: int = 42, span_s: int = 105) -> list[dict]:
     events = _malicious() + _noise(noise_count)
+    # Compress the timeline (relative order/spacing preserved) so the real-time
+    # end-to-end run — emission + the eventually-consistent settle — fits SC1's
+    # 3-minute budget with margin. The attack story is unchanged.
+    maxt = max((e["t"] for e in events), default=1) or 1
+    if maxt > span_s:
+        for e in events:
+            e["t"] = int(round(e["t"] * span_s / maxt))
     events.sort(key=lambda e: e["t"])
     return events
 

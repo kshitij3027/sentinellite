@@ -30,7 +30,8 @@ make replay                       # sentinel attack replay teampcp — watch the
 ## The demo: a supply-chain breach, caught
 
 `sentinel attack replay teampcp` injects a scripted supply-chain attack as ~50 native-schema alerts
-over ~3 minutes. The telemetry's malicious AWS stages are drawn **verbatim from real public attack
+in real time; the SOC reconstructs the full kill chain **end-to-end in ~2.3 minutes** (verified <
+3 min on a CPU-only laptop). The telemetry's malicious AWS stages are drawn **verbatim from real public attack
 datasets**; the benign noise is real `invictus-ir` CloudTrail. SentinelLite auto-closes the noise and
 reconstructs the attack into one incident:
 
@@ -145,7 +146,7 @@ OSV.dev threat-intel enrichment (TI) · multi-tenancy + air-gap mode (MT) · Pro
 
 ```bash
 docker compose up -d --build      # first run pulls qwen2.5:1.5b-instruct (~1 GB) into a volume
-make replay                       # the teampcp supply-chain attack, real-time (~3 min)
+make replay                       # the teampcp supply-chain attack, real-time (~2.3 min end-to-end)
 make replay SPEED=6               # or compress time for a quick look (see Makefile / CLI --speed)
 
 docker compose run --rm api sentinel datasets verify   # checksum the bundled datasets

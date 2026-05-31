@@ -21,15 +21,31 @@ METRICS_PORT = 9100
 
 
 async def _ingest_loop(stop: asyncio.Event) -> None:
+    # Bounded-concurrent triage: overlap LLM calls (Ollama serves NUM_PARALLEL at
+    # once) so a burst of alerts doesn't serialize behind one another.
+    sem = asyncio.Semaphore(settings.triage_concurrency)
+    inflight: set[asyncio.Task] = set()
+
+    async def _handle(it: dict) -> None:
+        async with sem:
+            try:
+                await process_alert(it["tenant_id"], it["alert_id"])
+            except Exception as exc:
+                log.error("worker.process_failed", error=str(exc))
+
     while not stop.is_set():
         try:
             item = await dequeue_alert(timeout=2)
             if item:
                 QUEUE_DEPTH.labels(queue="ingest").set(await queue_depth())
-                await process_alert(item["tenant_id"], item["alert_id"])
+                task = asyncio.create_task(_handle(item))
+                inflight.add(task)
+                task.add_done_callback(inflight.discard)
         except Exception as exc:
             log.error("worker.ingest_failed", error=str(exc))
             await asyncio.sleep(0.5)
+    if inflight:
+        await asyncio.gather(*inflight, return_exceptions=True)
 
 
 async def _investigation_loop(stop: asyncio.Event) -> None:

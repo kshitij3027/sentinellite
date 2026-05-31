@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # --- triage LLM policy ---
     triage_llm_all: bool = False  # False: LLM only for non-noise alerts (fast). True: every alert.
+    triage_concurrency: int = 3  # concurrent triage workers (overlaps LLM calls)
     llm_max_tokens: int = 700
 
     # --- investigation (R5/R6) ---
