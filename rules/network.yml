@@ -1,0 +1,8 @@
+# Cross-source network detections.
+- id: tor-exit-ip
+  title: Activity from a known Tor exit / suspicious IP
+  severity: medium
+  mitre: T1090.003
+  indicator: tor_exit_ip
+  condition:
+    ip_suspicious: true

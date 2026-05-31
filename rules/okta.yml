@@ -1,0 +1,42 @@
+# Okta System Log detections.
+- id: okta-login-from-suspicious-ip
+  title: Okta login from a suspicious / Tor exit IP
+  severity: medium
+  source: okta_system_log
+  mitre: T1078.004
+  indicator: suspicious_login
+  condition:
+    ip_suspicious: true
+
+- id: okta-failed-login-burst
+  title: Failed Okta authentication (possible password attack)
+  severity: medium
+  source: okta_system_log
+  mitre: T1110
+  indicator: auth_failure
+  condition:
+    any_contains:
+      fields: [raw]
+      values: ["invalid_credentials", "\"result\":\"failure\""]
+
+- id: okta-mfa-deactivated
+  title: Okta MFA factor deactivated (defense evasion)
+  severity: high
+  source: okta_system_log
+  mitre: T1556.006
+  indicator: mfa_disabled
+  condition:
+    any_contains:
+      fields: [source_event_type, raw]
+      values: [factor.deactivate, mfa_method_disabled, reset_factor]
+
+- id: okta-api-token-created
+  title: New Okta API token created (persistence)
+  severity: high
+  source: okta_system_log
+  mitre: T1098.001
+  indicator: api_token_created
+  condition:
+    any_contains:
+      fields: [source_event_type, raw]
+      values: [system.api_token.create]

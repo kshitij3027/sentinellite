@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from sentinel.logging import get_logger
 from sentinel.mitre import classify
+
+log = get_logger("indicators")
 
 # Known-bad source IPs. 185.220.101.0/24 is a real, well-known Tor exit block.
 TOR_EXIT_PREFIXES = ("185.220.101.", "185.220.100.", "171.25.193.")
@@ -30,10 +33,12 @@ class Signal:
     matched: list[str] = field(default_factory=list)
     techniques: list[str] = field(default_factory=list)
     weight: int = 0  # 0-100 contribution toward severity/priority
+    threat_flag: bool = False  # set by a matched medium+ detection rule
+    rules: list[str] = field(default_factory=list)  # matched rule ids
 
     @property
     def threat(self) -> bool:
-        return any(m in THREAT_INDICATORS for m in self.matched)
+        return self.threat_flag or any(m in THREAT_INDICATORS for m in self.matched)
 
     @property
     def obvious_noise(self) -> bool:
@@ -88,6 +93,22 @@ def evaluate(alert) -> Signal:
         elif ev == "GetObject" and any(h in cr for h in _SENSITIVE_HINTS):
             sig.matched.append("sensitive_bucket_exfil")
             sig.weight += 40
+
+    # Sigma-style detection rules (DE1/DE3) augment the signal.
+    try:
+        from sentinel.detection.rules import get_engine
+
+        for rule in get_engine().match(alert):
+            sig.rules.append(rule.id)
+            if rule.indicator and rule.indicator not in sig.matched:
+                sig.matched.append(rule.indicator)
+            if rule.mitre and rule.mitre not in sig.techniques:
+                sig.techniques.append(rule.mitre)
+            sig.weight += rule.weight
+            if rule.is_threat:
+                sig.threat_flag = True
+    except Exception as exc:  # rules are augmentation; never block triage
+        log.warning("rules.match_failed", error=str(exc))
 
     # Obvious-noise classification (only when no threat indicator matched and the
     # source IP isn't suspicious). Low/info telemetry is auto-closable noise even

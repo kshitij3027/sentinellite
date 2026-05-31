@@ -14,9 +14,52 @@ app = typer.Typer(name="sentinel", help="SentinelLite CLI — attack replay & da
                   no_args_is_help=True, add_completion=False)
 datasets_app = typer.Typer(help="Manage public attack datasets.", no_args_is_help=True)
 attack_app = typer.Typer(help="Replay scripted attack scenarios.", no_args_is_help=True)
+rules_app = typer.Typer(help="Detection rules (Sigma-style).", no_args_is_help=True)
 app.add_typer(datasets_app, name="datasets")
 app.add_typer(attack_app, name="attack")
+app.add_typer(rules_app, name="rules")
 console = Console()
+
+
+@rules_app.command("list")
+def rules_list() -> None:
+    """List loaded detection rules (DE1/DE3)."""
+    from sentinel.detection.rules import get_engine
+
+    eng = get_engine()
+    t = Table(title=f"Detection rules ({len(eng.rules)})")
+    t.add_column("id"); t.add_column("sev"); t.add_column("source"); t.add_column("mitre"); t.add_column("title")
+    for r in eng.rules:
+        t.add_row(r.id, r.severity, r.source or "any", r.mitre or "-", r.title)
+    console.print(t)
+
+
+@rules_app.command("tune")
+def rules_tune(
+    tenant: str = typer.Option("default"),
+    write: bool = typer.Option(True, help="write candidates to rules/candidates/"),
+) -> None:
+    """DetectionTunerAgent (DE2): propose rules for escalations not yet covered."""
+    import asyncio
+
+    from sentinel.detection.tuner import propose_rules, write_candidates
+
+    proposals = asyncio.run(propose_rules(tenant))
+    if not proposals:
+        console.print("[green]No detection gaps[/] — existing rules cover all escalated true-positives.")
+        raise typer.Exit(0)
+    t = Table(title="Proposed detection rules")
+    t.add_column("id"); t.add_column("source"); t.add_column("mitre"); t.add_column("title")
+    for p in proposals:
+        t.add_row(p["id"], p.get("source") or "any", p.get("mitre") or "-", p["title"])
+    console.print(t)
+    if write:
+        dest = write_candidates(proposals)
+        console.print(f"[green]Wrote candidates -> {dest}[/] (review the diff, then merge into rules/).")
+    if settings.github_pat:
+        console.print("[dim]GITHUB_PAT set — a real deployment would open a PR against the rules repo.[/]")
+    else:
+        console.print("[dim]Set GITHUB_PAT to have the tuner open a PR against the rules repo.[/]")
 
 
 @app.command()

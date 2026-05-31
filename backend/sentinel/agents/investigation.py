@@ -75,10 +75,11 @@ def _facts(alerts: list[Alert]) -> dict:
     }
 
 
-async def _run_domain(name: str, instructions: str, alerts: list[Alert], tenant: str) -> dict:
+async def _run_domain(name: str, instructions: str, alerts: list[Alert], tenant: str,
+                      extra_iocs: list[dict] | None = None) -> dict:
     started = time.monotonic()
     facts = _facts(alerts)
-    iocs = facts["iocs"]
+    iocs = facts["iocs"] + (extra_iocs or [])
     summary = ""
     tokens = 0
 
@@ -130,11 +131,16 @@ async def run_domain_agents(tenant_id: str, inv_id: str) -> list[dict]:
 
     await publish_trace(inv_id, {"type": "agents.start", "agents": ["identity", "endpoint", "supplychain"]})
 
+    # TI1/TI3: enrich compromised packages via OSV.dev (anonymous, airgap-aware).
+    from sentinel.enrich.osv import enrich_packages
+
+    osv_iocs = await enrich_packages(supply) if supply else []
+
     # R5: the three domain agents run CONCURRENTLY.
     results = await asyncio.gather(
         _run_domain("identity", _IDENTITY_INSTR, identity, tenant_id),
         _run_domain("endpoint", _ENDPOINT_INSTR, endpoint, tenant_id),
-        _run_domain("supplychain", _SUPPLY_INSTR, supply, tenant_id),
+        _run_domain("supplychain", _SUPPLY_INSTR, supply, tenant_id, extra_iocs=osv_iocs),
     )
 
     async with SessionLocal() as session:

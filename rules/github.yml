@@ -1,0 +1,45 @@
+# GitHub webhook / supply-chain detections.
+- id: github-supply-chain-postinstall
+  title: Compromised dependency with postinstall hook
+  severity: high
+  source: github
+  mitre: T1195.002
+  indicator: supply_chain_compromise
+  condition:
+    any_contains:
+      fields: [raw]
+      values: [postinstall, "package.json", lockfile, "ghsa-"]
+
+- id: github-leaked-aws-key
+  title: AWS access key (AKIA...) committed to a repo
+  severity: high
+  source: github
+  mitre: T1552.001
+  indicator: leaked_aws_key
+  condition:
+    any_contains:
+      fields: [raw]
+      values: ["akia"]
+
+- id: github-collaborator-admin-grant
+  title: Repository collaborator granted admin
+  severity: medium
+  source: github
+  mitre: T1098
+  indicator: privilege_grant
+  condition:
+    event_regex: "member"
+    any_contains:
+      fields: [raw]
+      values: ["\"to\":\"admin\"", "\"permission\":\"admin\""]
+
+- id: github-workflow-modified
+  title: CI workflow file modified
+  severity: medium
+  source: github
+  mitre: T1195.002
+  indicator: ci_tampering
+  condition:
+    any_contains:
+      fields: [raw]
+      values: [".github/workflows"]

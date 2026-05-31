@@ -1,0 +1,62 @@
+# AWS CloudTrail detections. Several are derived from patterns in the
+# flaws.cloud / Splunk attack_data corpora.
+- id: aws-createaccesskey-persistence
+  title: IAM CreateAccessKey (possible persistence)
+  severity: high
+  source: aws_cloudtrail
+  mitre: T1098.001
+  indicator: persistence_key
+  condition:
+    event_in: [CreateAccessKey]
+
+- id: aws-assumerole-from-tor
+  title: AssumeRole from a suspicious / Tor exit IP
+  severity: high
+  source: aws_cloudtrail
+  mitre: T1078.004
+  indicator: role_assumption
+  condition:
+    event_in: [AssumeRole, GetSessionToken]
+    ip_suspicious: true
+
+- id: aws-recon-from-bad-ip
+  title: Account/role enumeration from a suspicious IP
+  severity: medium
+  source: aws_cloudtrail
+  mitre: T1087.004
+  indicator: recon_from_bad_ip
+  condition:
+    event_in: [ListUsers, ListRoles, GetCallerIdentity, ListAccessKeys]
+    ip_suspicious: true
+
+- id: aws-s3-sensitive-bucket-access
+  title: S3 access to a sensitive (PII/customer/secret) bucket
+  severity: high
+  source: aws_cloudtrail
+  mitre: T1530
+  indicator: sensitive_bucket_exfil
+  condition:
+    event_in: [GetObject, ListObjects, CopyObject]
+    any_contains:
+      fields: [cloud_resource, raw]
+      values: [pii, customer, secret, credential, backup]
+
+- id: aws-disable-cloudtrail
+  title: CloudTrail logging disabled or trail deleted
+  severity: critical
+  source: aws_cloudtrail
+  mitre: T1562.008
+  indicator: defense_evasion
+  condition:
+    event_in: [StopLogging, DeleteTrail, UpdateTrail, PutEventSelectors]
+
+- id: aws-root-account-activity
+  title: Root account API activity
+  severity: high
+  source: aws_cloudtrail
+  mitre: T1078.004
+  indicator: root_activity
+  condition:
+    any_contains:
+      fields: [actor_identity, raw]
+      values: [":root", "\"type\":\"root\""]

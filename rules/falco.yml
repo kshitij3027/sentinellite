@@ -1,0 +1,55 @@
+# Falco runtime / endpoint detections.
+- id: falco-shell-in-container
+  title: Shell spawned in a container / CI runner
+  severity: high
+  source: falco
+  mitre: T1059.004
+  indicator: shell_in_ci
+  condition:
+    any_contains:
+      fields: [source_event_type]
+      values: [shell, terminal]
+
+- id: falco-find-aws-credentials
+  title: Process searching for AWS credentials
+  severity: high
+  source: falco
+  mitre: T1552.001
+  indicator: credential_theft
+  condition:
+    any_contains:
+      fields: [source_event_type, process, raw]
+      values: [credential, ".aws/credentials", akia]
+
+- id: falco-read-sensitive-file
+  title: Sensitive file read by untrusted program
+  severity: medium
+  source: falco
+  mitre: T1555
+  indicator: sensitive_file_read
+  condition:
+    any_contains:
+      fields: [source_event_type, process]
+      values: [sensitive file, "/etc/shadow", "/etc/passwd"]
+
+- id: falco-outbound-c2
+  title: Outbound connection / RCE from a container
+  severity: high
+  source: falco
+  mitre: T1567.002
+  indicator: c2_exfil
+  condition:
+    any_contains:
+      fields: [source_event_type, process]
+      values: [netcat, outbound, remote code, "nc ", "curl -x post"]
+
+- id: falco-crypto-mining
+  title: Crypto-mining activity in a container
+  severity: high
+  source: falco
+  mitre: T1496
+  indicator: crypto_mining
+  condition:
+    any_contains:
+      fields: [source_event_type, process, raw]
+      values: [xmrig, stratum, minerd, cryptonight]

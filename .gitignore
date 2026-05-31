@@ -55,5 +55,8 @@ Thumbs.db
 .idea/
 .vscode/
 
+# ---- Auto-generated rule proposals (DE2) ----
+rules/candidates/
+
 # ---- Local scratch ----
 tasks/scratch/

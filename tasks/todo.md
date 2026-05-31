@@ -75,12 +75,13 @@
 - [x] **Validated live: 8-stage MITRE kill chain, 84% noise auto-closed, 5 staged actions,
       audit ok — SC1/SC3/SC4/SC5/SC6 all demonstrated. 62 tests green.**
 
-## Milestone 5 — Dashboard (R10)
-- [ ] Next.js 15 + tailwind + shadcn/ui + react-query
-- [ ] Alert Queue view (Severity/Confidence/Priority)
-- [ ] Investigation Detail: attack graph (react-force-graph-2d) + agent timeline (SSE)
-- [ ] Pending Actions view (approve/reject + reasoning)
-- [ ] Audit Log view w/ hash-chain status badge
+## Milestone 5 — Dashboard (R10)  ✅ DONE
+- [x] Next.js 15 + tailwind + react-query + react-force-graph-2d + lucide (dark SOC theme)
+- [x] Alert Queue view (Severity/Confidence/Priority bars, status filters, counts)
+- [x] Investigation Detail: attack graph (force-graph) + kill chain + agent timeline (SSE) + provenance
+- [x] Pending Actions view (approve/reject + two-tier confirm modal + dry-run badge)
+- [x] Audit Log view w/ hash-chain status badge
+- [x] SSE stream + /graph backend endpoints; tenant selector; runs on :3000; verified vs teampcp6
 
 ## Milestone 6 — Observability (OB1–OB4)  ✅ DONE
 - [x] Prometheus metrics (all 6 headline signals + supporting), scraped from BOTH
@@ -89,12 +90,12 @@
 - [x] structlog JSON (M1) + circuit breaker (OB4, M2); hash-chain-breaks gauge wired
 - [x] Verified: both scrape targets up; 42 auto-closed/8 escalated/4281 tokens in Prometheus
 
-## Milestone 7 — Extended (as time allows)
-- [ ] DE1–DE3 detection rules + 20 starter detections + DetectionTunerAgent
-- [ ] TI1–TI3 threat-intel enrichment (OSV.dev tier-0 default)
-- [ ] MT1–MT2 multi-tenancy + air-gap mode
-- [ ] LI1–LI4 live integrations (opt-in stubs)
-- [ ] Stretch: B2 okta-breach replay, B3 eval harness, B4 PDF report, B6 flaws-real
+## Milestone 7 — Extended  (partial — high-value items done)
+- [x] DE1 Sigma-style rules + hot-reload; DE3 20 starter detections; DE2 DetectionTunerAgent (`sentinel rules tune`)
+- [x] TI1/TI3 OSV.dev enrichment (tier-0, anonymous, airgap-aware) feeding SupplyChain agent
+- [x] MT1 tenant isolation (tenant_id everywhere, day one); MT2 air-gap mode + runbook (docs/AIRGAP.md)
+- [ ] LI1–LI4 live integrations (opt-in; documented as env-gated, not wired)
+- [ ] Stretch: B2 okta-breach, B3 eval harness, B4 PDF report, B6 flaws-real (time permitting)
 
 ## Milestone 8 — End-to-end verification
 - [ ] `verification/stories.yaml` (1–2 multi-step journeys)
